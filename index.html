@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Pushup Tracker</title>
+  </head>
+  <body class="bg-gray-900 text-white min-h-screen font-sans" x-data="app">
+    
+    <!-- Login Screen -->
+    <div x-show="screen === 'login'" class="flex flex-col items-center justify-center min-h-screen p-4" x-cloak>
+      <h1 class="text-3xl font-bold mb-8">Pushup Tracker</h1>
+      
+      <div class="w-full max-w-sm space-y-4">
+        <div>
+            <label class="block text-sm font-medium text-gray-400">API URL</label>
+            <input type="text" x-model="apiUrl" class="w-full bg-gray-800 border border-gray-700 rounded p-2 text-white focus:outline-none focus:border-blue-500" placeholder="https://api.example.com">
+        </div>
+        
+        <div>
+            <label class="block text-sm font-medium text-gray-400">Username</label>
+            <input type="text" x-model="loginForm.username" class="w-full bg-gray-800 border border-gray-700 rounded p-2 text-white focus:outline-none focus:border-blue-500">
+        </div>
+        
+        <div>
+            <label class="block text-sm font-medium text-gray-400">Password</label>
+            <input type="password" x-model="loginForm.password" class="w-full bg-gray-800 border border-gray-700 rounded p-2 text-white focus:outline-none focus:border-blue-500">
+        </div>
+        
+        <div x-show="loginForm.error" class="text-red-500 text-sm" x-text="loginForm.error"></div>
+        
+        <button @click="login" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded transition">
+            Login
+        </button>
+      </div>
+    </div>
+
+    <!-- Home Screen -->
+    <div x-show="screen === 'home'" class="flex flex-col min-h-screen p-4" x-cloak>
+        <div class="flex justify-between items-center mb-8">
+            <h2 class="text-xl font-bold">Welcome, <span x-text="user?.username"></span></h2>
+            <button @click="logout" class="text-sm text-red-400">Logout</button>
+        </div>
+        
+        <div class="flex-1 flex flex-col justify-center space-y-8">
+            <div class="text-center">
+                <h3 class="text-lg text-gray-400 mb-2">Current Difficulty</h3>
+                
+                <div class="bg-gray-800 p-4 rounded-lg border border-gray-700">
+                    <select x-model="currentDifficulty" class="bg-transparent text-xl font-bold text-center w-full focus:outline-none mb-2" 
+                        @change="selectDifficulty(difficulties.find(d => d.id == $event.target.value))">
+                        <template x-for="diff in difficulties" :key="diff.id">
+                            <option :value="diff.id" :selected="currentDifficulty?.id === diff.id" x-text="diff.level_name"></option>
+                        </template>
+                    </select>
+                    
+                    <div class="text-blue-400 font-mono text-lg" x-text="currentDifficulty?.counts"></div>
+                </div>
+            </div>
+            
+             <div class="text-center">
+                <h3 class="text-lg text-gray-400 mb-2">Rest Time (seconds)</h3>
+                 <input type="number" x-model="activeWorkout.customRestTime" class="bg-gray-800 text-white text-center p-2 rounded border border-gray-700 w-24">
+             </div>
+            
+            <button @click="startWorkout" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-4 rounded-xl text-xl transition shadow-lg shadow-green-900/50">
+                Start Workout
+            </button>
+        </div>
+    </div>
+
+    <!-- Workout Screen -->
+    <div x-show="screen === 'workout'" class="flex flex-col min-h-screen bg-black" x-cloak>
+        <!-- Top Bar: Sets -->
+        <div class="p-4 flex justify-between items-center bg-gray-900">
+            <template x-for="(count, index) in activeWorkout.sets">
+                <div class="flex flex-col items-center" :class="{'text-blue-500 font-bold': index === activeWorkout.currentSetIndex, 'text-gray-600': index !== activeWorkout.currentSetIndex}">
+                    <span class="text-lg" x-text="count"></span>
+                    <div class="h-1 w-full mt-1" :class="{'bg-blue-500': index < activeWorkout.currentSetIndex, 'bg-gray-800': index >= activeWorkout.currentSetIndex}"></div>
+                </div>
+            </template>
+        </div>
+
+        <!-- Main Area -->
+        <div class="flex-1 relative flex items-center justify-center cursor-pointer select-none" @click="tap">
+            
+            <!-- Progress Circle -->
+            <div class="relative w-64 h-64 flex items-center justify-center">
+                <!-- Background Circle -->
+                <div class="absolute inset-0 rounded-full border-4 border-gray-800"></div>
+                
+                <!-- Active Progress (Simulated with simple scaling or just text for now, using conic-gradient is better but complex without plugin) -->
+                 <!-- Using SVG for progress ring -->
+                 <svg class="absolute inset-0 w-full h-full transform -rotate-90">
+                    <circle cx="128" cy="128" r="120" stroke="currentColor" stroke-width="8" fill="transparent" class="text-gray-800" />
+                    <circle cx="128" cy="128" r="120" stroke="currentColor" stroke-width="8" fill="transparent" class="text-blue-500 transition-all duration-300"
+                        :stroke-dasharray="2 * Math.PI * 120"
+                        :stroke-dashoffset="2 * Math.PI * 120 * (1 - progressPercentage / 100)"
+                    />
+                 </svg>
+
+                <div class="text-center z-10">
+                    <div x-show="!activeWorkout.isResting">
+                        <div class="text-6xl font-bold" x-text="activeWorkout.currentCount"></div>
+                        <div class="text-gray-400 text-xl">/ <span x-text="activeWorkout.sets[activeWorkout.currentSetIndex]"></span></div>
+                    </div>
+                    
+                    <div x-show="activeWorkout.isResting">
+                        <div class="text-xl text-yellow-500 mb-2">Rest</div>
+                        <div class="text-6xl font-bold" x-text="activeWorkout.restTimeLeft"></div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="absolute bottom-10 right-10 z-20">
+                <button @click.stop="skipSet" class="bg-gray-800 hover:bg-gray-700 text-white px-4 py-2 rounded-full text-sm border border-gray-600">
+                    Skip >
+                </button>
+            </div>
+            
+            <div class="absolute bottom-10 left-10 z-20 text-gray-500 text-sm">
+                Tap anywhere to count
+            </div>
+        </div>
+    </div>
+    
+    <!-- Summary Screen -->
+    <div x-show="screen === 'summary'" class="flex flex-col items-center justify-center min-h-screen p-4 bg-gray-900" x-cloak>
+        <h2 class="text-3xl font-bold mb-8 text-green-500">Workout Complete!</h2>
+        
+        <div class="text-center mb-8">
+            <p class="text-gray-400 mb-2">Total Pushups</p>
+            <p class="text-5xl font-bold" x-text="activeWorkout.sets.reduce((a,b)=>a+b, 0)"></p>
+        </div>
+        
+        <div class="w-full max-w-sm space-y-4">
+            <button @click="finishWorkout(true)" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg transition">
+                Increase Difficulty (Next Level)
+            </button>
+            
+            <button @click="finishWorkout(false)" class="w-full bg-gray-700 hover:bg-gray-600 text-white font-bold py-3 px-4 rounded-lg transition">
+                Maintain Difficulty
+            </button>
+        </div>
+    </div>
+
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
