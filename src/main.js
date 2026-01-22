@@ -26,6 +26,7 @@ Alpine.data('app', () => ({
         isResting: false,
         restTimeLeft: 0,
         customRestTime: Alpine.$persist(60),
+        isSaving: false
     },
 
     async init() {
@@ -159,6 +160,9 @@ Alpine.data('app', () => ({
     },
 
     async finishWorkout(increaseDifficulty) {
+        if (this.activeWorkout.isSaving) return;
+        this.activeWorkout.isSaving = true;
+
         try {
             // Submit record
             const res = await fetch(`${this.apiUrl}/api/records`, {
@@ -172,23 +176,34 @@ Alpine.data('app', () => ({
             });
 
             if (res.status === 401) {
+                alert('Session expired. Please log in again.');
                 this.logout();
                 return;
             }
+
+            if (!res.ok) throw new Error('Failed to save record');
 
             if (increaseDifficulty) {
                 // Find next difficulty
                 const currentIndex = this.difficulties.findIndex(d => d.id === this.currentDifficulty.id);
                 if (currentIndex < this.difficulties.length - 1) {
                     const nextDiff = this.difficulties[currentIndex + 1];
-                    this.currentDifficulty = nextDiff;
+                    
                     // Update user difficulty in backend
-                    await fetch(`${this.apiUrl}/api/user/difficulty`, {
+                    const diffRes = await fetch(`${this.apiUrl}/api/user/difficulty`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ difficulty_id: nextDiff.id }),
                         credentials: 'include'
                     });
+
+                    if (diffRes.status === 401) {
+                        alert('Session expired during update. Please log in again.');
+                        this.logout();
+                        return;
+                    }
+                    
+                    this.currentDifficulty = nextDiff;
                     this.user.current_difficulty_id = nextDiff.id;
                 }
             }
@@ -197,6 +212,8 @@ Alpine.data('app', () => ({
         } catch (e) {
             alert('Error saving workout: ' + e.message);
             this.screen = 'home';
+        } finally {
+            this.activeWorkout.isSaving = false;
         }
     },
     
