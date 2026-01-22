@@ -39,11 +39,17 @@ Alpine.data('app', () => ({
         selectedDateStr: null
     },
 
+    // Audio context for beep sound
+    audioContext: null,
+
     async init() {
         if (this.user) {
             if (this.screen === 'login') this.screen = 'home';
             await this.fetchDifficulties();
         }
+        
+        // Initialize AudioContext on user interaction (init is usually too early for auto-play, but we prep it)
+        // We'll init it properly on first tap if needed
         
         setInterval(() => {
             if (this.activeWorkout.isResting && this.activeWorkout.restTimeLeft > 0) {
@@ -256,8 +262,40 @@ Alpine.data('app', () => ({
         }
     },
 
+    playBeep() {
+        try {
+            if (!this.audioContext) {
+                this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            
+            if (this.audioContext.state === 'suspended') {
+                this.audioContext.resume();
+            }
+
+            const oscillator = this.audioContext.createOscillator();
+            const gainNode = this.audioContext.createGain();
+
+            oscillator.type = 'sine';
+            oscillator.frequency.setValueAtTime(880, this.audioContext.currentTime); // A5 (High beep)
+            
+            gainNode.gain.setValueAtTime(0.1, this.audioContext.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.001, this.audioContext.currentTime + 0.1);
+
+            oscillator.connect(gainNode);
+            gainNode.connect(this.audioContext.destination);
+
+            oscillator.start();
+            oscillator.stop(this.audioContext.currentTime + 0.1);
+        } catch (e) {
+            console.error('Audio play failed', e);
+        }
+    },
+
     tap() {
         if (this.activeWorkout.isResting) return;
+        
+        this.playBeep();
+        
         const target = this.activeWorkout.sets[this.activeWorkout.currentSetIndex];
         
         if (this.activeWorkout.currentCount < target) {
