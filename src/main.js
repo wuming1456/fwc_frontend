@@ -28,6 +28,16 @@ Alpine.data('app', () => ({
         customRestTime: Alpine.$persist(60),
         isSaving: false
     },
+    
+    // Calendar related state
+    calendar: {
+        currentDate: new Date(),
+        days: [],
+        monthName: '',
+        records: [], // All records fetched from backend
+        selectedDateRecords: null,
+        selectedDateStr: null
+    },
 
     async init() {
         if (this.user) {
@@ -79,7 +89,7 @@ Alpine.data('app', () => ({
     
     async fetchDifficulties() {
         if (!this.apiUrl) return;
-         try {
+        try {
             const res = await fetch(`${this.apiUrl}/api/difficulties`);
             if (res.status === 401) {
                 this.logout();
@@ -97,9 +107,129 @@ Alpine.data('app', () => ({
             } else if (this.difficulties.length > 0) {
                 this.currentDifficulty = this.difficulties[0];
             }
+            
+            // Also fetch records if we are initializing
+            this.fetchRecords();
         } catch (e) {
             console.error('Failed to fetch difficulties', e);
         }
+    },
+
+    async fetchRecords() {
+        if (!this.apiUrl || !this.user) return;
+        try {
+            const res = await fetch(`${this.apiUrl}/api/records`, { credentials: 'include' });
+            if (res.status === 401) return; // Handled elsewhere usually
+            const data = await res.json();
+            
+            // Convert records to UTC+8 local time string "YYYY-MM-DD" for easy matching
+            this.calendar.records = data.map(r => {
+                // created_at is either timestamp (int) or "YYYY-MM-DD HH:mm:ss" (string)
+                let dateObj;
+                if (typeof r.created_at === 'number') {
+                    dateObj = new Date(r.created_at);
+                } else {
+                    // It's a string "YYYY-MM-DD HH:mm:ss" which is implicitly UTC in our logic (or whatever server time)
+                    // But wait, the previous code saved it as string.
+                    // If we want to treat it as UTC and convert to +8:
+                    // new Date("2026-01-22 15:30:45Z") -> UTC
+                    // But the DB string doesn't have Z. "2026-01-22 15:30:45".
+                    // If we assume it was saved as UTC, we append 'Z'.
+                    dateObj = new Date(r.created_at.replace(' ', 'T') + 'Z');
+                }
+                
+                // Add 8 hours for display
+                const utc8Date = new Date(dateObj.getTime() + 8 * 60 * 60 * 1000); // Shift time for display logic if we were rendering strictly
+                // Actually, let's just use standard Intl formatter for "Asia/Shanghai"
+                
+                const fmt = new Intl.DateTimeFormat('en-CA', { 
+                    timeZone: 'Asia/Shanghai', 
+                    year: 'numeric', month: '2-digit', day: '2-digit',
+                    hour: '2-digit', minute: '2-digit', second: '2-digit',
+                    hour12: false
+                });
+                // en-CA gives YYYY-MM-DD
+                const parts = fmt.formatToParts(dateObj);
+                const part = (type) => parts.find(p => p.type === type).value;
+                const dateStr = `${part('year')}-${part('month')}-${part('day')}`;
+                const timeStr = `${part('hour')}:${part('minute')}`;
+                
+                return {
+                    ...r,
+                    displayDate: dateStr, // YYYY-MM-DD in +8
+                    displayTime: timeStr  // HH:mm in +8
+                };
+            });
+            
+            this.renderCalendar();
+        } catch (e) {
+            console.error('Failed to fetch records', e);
+        }
+    },
+    
+    renderCalendar() {
+        const year = this.calendar.currentDate.getFullYear();
+        const month = this.calendar.currentDate.getMonth();
+        
+        // Month name
+        this.calendar.monthName = new Date(year, month).toLocaleString('default', { month: 'long', year: 'numeric' });
+        
+        const firstDay = new Date(year, month, 1);
+        const lastDay = new Date(year, month + 1, 0);
+        
+        const days = [];
+        const startPadding = firstDay.getDay(); // 0 is Sunday
+        
+        // Padding days
+        for (let i = 0; i < startPadding; i++) {
+            days.push({ day: '', fullDate: null, hasRecord: false });
+        }
+        
+        // Actual days
+        for (let i = 1; i <= lastDay.getDate(); i++) {
+            const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(i).padStart(2, '0')}`;
+            
+            // Find records for this day
+            const dayRecords = this.calendar.records.filter(r => r.displayDate === dateStr);
+            const totalCount = dayRecords.reduce((sum, r) => sum + r.total_count, 0);
+            
+            days.push({
+                day: i,
+                fullDate: dateStr,
+                hasRecord: dayRecords.length > 0,
+                totalCount: totalCount,
+                records: dayRecords
+            });
+        }
+        
+        this.calendar.days = days;
+    },
+    
+    prevMonth() {
+        this.calendar.currentDate.setMonth(this.calendar.currentDate.getMonth() - 1);
+        this.calendar.currentDate = new Date(this.calendar.currentDate); // trigger reactivity
+        this.renderCalendar();
+    },
+    
+    nextMonth() {
+        this.calendar.currentDate.setMonth(this.calendar.currentDate.getMonth() + 1);
+        this.calendar.currentDate = new Date(this.calendar.currentDate);
+        this.renderCalendar();
+    },
+    
+    selectDate(day) {
+        if (!day.fullDate || !day.hasRecord) return;
+        this.calendar.selectedDateStr = day.fullDate;
+        this.calendar.selectedDateRecords = day.records;
+    },
+    
+    closeCalendarDetails() {
+        this.calendar.selectedDateRecords = null;
+    },
+    
+    openHistory() {
+        this.fetchRecords();
+        this.screen = 'history';
     },
 
     selectDifficulty(diff) {
