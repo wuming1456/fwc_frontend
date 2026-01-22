@@ -50,11 +50,9 @@
                     <select x-model="currentDifficulty" class="bg-transparent text-xl font-bold text-center w-full focus:outline-none mb-2" 
                         @change="selectDifficulty(difficulties.find(d => d.id == $event.target.value))">
                         <template x-for="diff in difficulties" :key="diff.id">
-                            <option :value="diff.id" :selected="currentDifficulty?.id === diff.id" x-text="diff.level_name"></option>
+                            <option :value="diff.id" :selected="currentDifficulty?.id === diff.id" x-text="diff.counts"></option>
                         </template>
                     </select>
-                    
-                    <div class="text-blue-400 font-mono text-lg" x-text="currentDifficulty?.counts"></div>
                 </div>
             </div>
             
@@ -74,9 +72,24 @@
         <!-- Top Bar: Sets -->
         <div class="p-4 flex justify-between items-center bg-gray-900">
             <template x-for="(count, index) in activeWorkout.sets">
-                <div class="flex flex-col items-center" :class="{'text-blue-500 font-bold': index === activeWorkout.currentSetIndex, 'text-gray-600': index !== activeWorkout.currentSetIndex}">
-                    <span class="text-lg" x-text="count"></span>
-                    <div class="h-1 w-full mt-1" :class="{'bg-blue-500': index < activeWorkout.currentSetIndex, 'bg-gray-800': index >= activeWorkout.currentSetIndex}"></div>
+                <div class="flex flex-col items-center transition-all duration-300" 
+                    :class="{
+                        'scale-110': index === activeWorkout.currentSetIndex, 
+                        'opacity-50': index !== activeWorkout.currentSetIndex
+                    }">
+                    <span class="text-lg font-bold" 
+                        :class="{
+                            'text-blue-400': index === activeWorkout.currentSetIndex, 
+                            'text-white': index !== activeWorkout.currentSetIndex
+                        }" 
+                        x-text="count"></span>
+                    
+                    <div class="h-1.5 w-8 rounded-full mt-1 transition-colors duration-300" 
+                        :class="{
+                            'bg-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.5)]': index === activeWorkout.currentSetIndex,
+                            'bg-green-500': index < activeWorkout.currentSetIndex,
+                            'bg-gray-700': index > activeWorkout.currentSetIndex
+                        }"></div>
                 </div>
             </template>
         </div>
