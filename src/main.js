@@ -12,7 +12,8 @@ Alpine.data('app', () => ({
     loginForm: {
         username: '',
         password: '',
-        error: ''
+        error: '',
+        isLoading: false
     },
 
     difficulties: [],
@@ -45,10 +46,14 @@ Alpine.data('app', () => ({
 
     async login() {
         this.loginForm.error = '';
+        if (this.loginForm.isLoading) return;
+
         if (!this.apiUrl) {
             this.loginForm.error = 'Please set API URL';
             return;
         }
+        
+        this.loginForm.isLoading = true;
         try {
             const res = await fetch(`${this.apiUrl}/api/login`, {
                 method: 'POST',
@@ -66,6 +71,8 @@ Alpine.data('app', () => ({
             this.fetchDifficulties();
         } catch (e) {
             this.loginForm.error = e.message;
+        } finally {
+            this.loginForm.isLoading = false;
         }
     },
     
