@@ -3,8 +3,6 @@ name: Deploy Frontend to Pages
 on:
   push:
     branches: ["main"]
-  pull_request:
-    branches: [ "main" ]
   workflow_dispatch:
 
 permissions:
@@ -36,11 +34,7 @@ jobs:
       - name: Build
         run: npm run build
         env:
-          app.use('/*', cors({
-  origin: (origin) => origin, // Dynamically allows the requesting origin
-  credentials: true,
-  // ...
-})): ${{ vars.API_URL }}
+          VITE_API_URL: ${{ vars.API_URL }}
       - name: Setup Pages
         uses: actions/configure-pages@v4
       - name: Upload artifact
