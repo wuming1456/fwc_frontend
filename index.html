@@ -208,7 +208,7 @@
                                     <span x-text="record.displayTime"></span>
                                     <span class="text-sm font-normal text-gray-400" x-text="'• ' + (record.level_name || 'Level ' + record.difficulty_id)"></span>
                                 </div>
-                                <div class="text-xs text-gray-500 mt-1" x-text="'Sets: ' + (record.counts || 'Unknown')"></div>
+                                <div class="text-xs text-gray-500 mt-1" x-text="'Sets: ' + (record.counts ? record.counts.replace(/,/g, ' - ') : 'Unknown')"></div>
                             </div>
                             <div class="flex flex-col items-end">
                                 <span class="text-2xl font-bold text-green-400" x-text="record.total_count"></span>
