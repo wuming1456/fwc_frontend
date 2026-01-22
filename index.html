@@ -40,12 +40,12 @@
             
             <div class="space-y-2">
                 <label class="block text-xs font-semibold text-gray-400 uppercase tracking-wider">Username</label>
-                <input type="text" x-model="loginForm.username" class="w-full bg-gray-900/50 border border-gray-600 rounded-lg p-3 text-white placeholder-gray-600 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all">
+                <input type="text" name="username" x-model="loginForm.username" class="w-full bg-gray-900/50 border border-gray-600 rounded-lg p-3 text-white placeholder-gray-600 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all">
             </div>
             
             <div class="space-y-2">
                 <label class="block text-xs font-semibold text-gray-400 uppercase tracking-wider">Password</label>
-                <input type="password" x-model="loginForm.password" class="w-full bg-gray-900/50 border border-gray-600 rounded-lg p-3 text-white placeholder-gray-600 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all">
+                <input type="password" name="password" x-model="loginForm.password" class="w-full bg-gray-900/50 border border-gray-600 rounded-lg p-3 text-white placeholder-gray-600 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all">
             </div>
             
             <div x-show="loginForm.error" class="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm flex items-center gap-2" x-transition>
