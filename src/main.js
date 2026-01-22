@@ -217,10 +217,17 @@ Alpine.data('app', () => ({
         }
     },
     
-    logout() {
+    async logout() {
+        try {
+            if (this.apiUrl) {
+                await fetch(`${this.apiUrl}/api/logout`, { method: 'POST', credentials: 'include' });
+            }
+        } catch (e) {
+            console.error('Logout failed', e);
+        }
         this.user = null;
         this.screen = 'login';
-        // Clear cookie if possible or just forget local user
+        this.currentDifficulty = null;
     },
     
     get progressPercentage() {
