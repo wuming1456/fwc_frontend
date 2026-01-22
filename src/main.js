@@ -6,7 +6,7 @@ Alpine.plugin(persist)
 
 Alpine.data('app', () => ({
     screen: Alpine.$persist('login'), // login, home, workout, summary
-    apiUrl: Alpine.$persist(''),
+    apiUrl: Alpine.$persist(import.meta.env.VITE_API_URL || ''),
     user: Alpine.$persist(null),
     
     loginForm: {
@@ -84,6 +84,7 @@ Alpine.data('app', () => ({
             }));
             
             if (this.user && this.user.current_difficulty_id) {
+                // Find based on difficulty ID stored in user profile
                 this.currentDifficulty = this.difficulties.find(d => d.id === this.user.current_difficulty_id) || this.difficulties[0];
             } else if (this.difficulties.length > 0) {
                 this.currentDifficulty = this.difficulties[0];
