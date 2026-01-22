@@ -31,7 +31,7 @@ jobs:
           cache-dependency-path: package-lock.json
       - name: Install dependencies
         run: npm ci
-      - name: Build
+      - name: Build (with Tailwind CSS)
         run: npm run build
         env:
           VITE_API_URL: ${{ vars.API_URL }}
