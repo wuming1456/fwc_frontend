@@ -92,7 +92,7 @@
                          <select x-model="currentDifficulty" class="appearance-none bg-transparent text-3xl font-bold text-center w-full focus:outline-none cursor-pointer text-white" 
                             @change="selectDifficulty(difficulties.find(d => d.id == $event.target.value))">
                             <template x-for="diff in difficulties" :key="diff.id">
-                                <option :value="diff.id" :selected="currentDifficulty?.id === diff.id" x-text="diff.counts" class="bg-gray-900 text-base"></option>
+                                <option :value="diff.id" :selected="currentDifficulty?.id === diff.id" x-text="diff.counts.replace(/,/g, ' - ')" class="bg-gray-900 text-base"></option>
                             </template>
                         </select>
                         <div class="mt-2 text-gray-500 text-sm flex items-center gap-1">
