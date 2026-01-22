@@ -111,6 +111,13 @@ Alpine.data('app', () => ({
         this.screen = 'workout';
     },
 
+    quitWorkout() {
+        if (confirm('Are you sure you want to quit current workout?')) {
+            this.screen = 'home';
+            this.activeWorkout.isResting = false;
+        }
+    },
+
     tap() {
         if (this.activeWorkout.isResting) return;
         const target = this.activeWorkout.sets[this.activeWorkout.currentSetIndex];

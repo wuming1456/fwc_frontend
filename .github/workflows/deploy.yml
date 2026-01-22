@@ -36,7 +36,11 @@ jobs:
       - name: Build
         run: npm run build
         env:
-          VITE_API_URL: ${{ vars.API_URL }}
+          app.use('/*', cors({
+  origin: (origin) => origin, // Dynamically allows the requesting origin
+  credentials: true,
+  // ...
+})): ${{ vars.API_URL }}
       - name: Setup Pages
         uses: actions/configure-pages@v4
       - name: Upload artifact
