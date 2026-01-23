@@ -246,12 +246,12 @@
         </div>
 
         <!-- Main Area -->
-        <div class="flex-1 relative flex items-center justify-center cursor-pointer select-none touch-manipulation" 
-             @touchstart.prevent="tap" 
-             @mousedown="tap">
+        <div class="flex-1 relative flex items-center justify-center select-none touch-manipulation">
             
-            <!-- Progress Circle -->
-            <div class="relative w-72 h-72 flex items-center justify-center">
+            <!-- Tap Zone (Circle only) -->
+            <div class="relative w-72 h-72 flex items-center justify-center cursor-pointer"
+                 @touchstart.prevent="tap" 
+                 @mousedown="tap">
                 <!-- Decorative Outer Glow -->
                 <div class="absolute inset-0 bg-blue-500/10 rounded-full blur-3xl animate-pulse" x-show="!activeWorkout.isResting"></div>
                 
@@ -287,7 +287,7 @@
             
             <!-- Skip Button -->
             <div class="fixed bottom-8 right-8 z-20">
-                <button @click.stop="skipSet" class="group flex items-center gap-2 pl-4 pr-3 py-3 rounded-full bg-gray-800/80 backdrop-blur border border-gray-700 hover:bg-gray-700 text-gray-300 hover:text-white transition-all shadow-lg">
+                <button @click="skipSet" class="group flex items-center gap-2 pl-4 pr-3 py-3 rounded-full bg-gray-800/80 backdrop-blur border border-gray-700 hover:bg-gray-700 text-gray-300 hover:text-white transition-all shadow-lg cursor-pointer">
                     <span class="text-sm font-semibold" x-text="activeWorkout.isResting ? 'Skip Rest' : 'Skip Set'"></span>
                     <div class="bg-gray-700 group-hover:bg-gray-600 rounded-full p-1">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
@@ -297,14 +297,14 @@
             
             <!-- Quit Button -->
             <div class="fixed bottom-8 left-8 z-20">
-                <button @click.stop="quitWorkout" class="flex items-center gap-2 px-4 py-3 rounded-full text-red-500 hover:text-red-400 hover:bg-red-500/10 transition-all">
+                <button @click="quitWorkout" class="flex items-center gap-2 px-4 py-3 rounded-full text-red-500 hover:text-red-400 hover:bg-red-500/10 transition-all cursor-pointer">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
                     <span class="text-sm font-bold">Quit</span>
                 </button>
             </div>
             
             <div class="absolute bottom-32 left-0 right-0 text-center pointer-events-none">
-                 <span class="text-gray-600 text-sm font-medium animate-fade-pulse uppercase tracking-widest">Tap anywhere to count</span>
+                 <span class="text-gray-600 text-sm font-medium animate-fade-pulse uppercase tracking-widest">Tap circle to count</span>
             </div>
         </div>
     </div>
