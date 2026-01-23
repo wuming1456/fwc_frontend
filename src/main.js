@@ -370,7 +370,13 @@ Alpine.data('app', () => ({
         }
     },
 
-    tap() {
+    tap(e) {
+        // Prevent double firing if both touch and mouse events occur (hybrid devices)
+        if (e && e.type === 'mousedown' && 'ontouchstart' in window) {
+             // Let touchstart handle it on touch devices
+             return;
+        }
+        
         if (this.activeWorkout.isResting) return;
         
         this.playBeep();

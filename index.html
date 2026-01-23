@@ -246,7 +246,9 @@
         </div>
 
         <!-- Main Area -->
-        <div class="flex-1 relative flex items-center justify-center cursor-pointer select-none touch-manipulation" @click="tap">
+        <div class="flex-1 relative flex items-center justify-center cursor-pointer select-none touch-manipulation" 
+             @touchstart.prevent="tap" 
+             @mousedown="tap">
             
             <!-- Progress Circle -->
             <div class="relative w-72 h-72 flex items-center justify-center">
