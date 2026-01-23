@@ -39,6 +39,28 @@ Alpine.data('app', () => ({
         selectedDateStr: null
     },
 
+    // Toast Notification
+    toast: {
+        visible: false,
+        message: '',
+        type: 'info', // 'info' | 'error' | 'success'
+        timeout: null
+    },
+
+    showToast(message, type = 'info') {
+        this.toast.message = message;
+        this.toast.type = type;
+        this.toast.visible = true;
+        
+        if (this.toast.timeout) clearTimeout(this.toast.timeout);
+        this.toast.timeout = setTimeout(() => {
+            this.toast.visible = false;
+        }, 3000);
+    },
+
+    // Difficulty Picker
+    difficultyPickerOpen: false,
+
     // Audio context for beep sound
     audioContext: null,
 
@@ -383,8 +405,7 @@ Alpine.data('app', () => ({
             });
 
             if (res.status === 401) {
-                const errorBody = await res.json();
-                alert('Session expired. Please log in again.' + ' record: ' + errorBody.error);
+                this.showToast('Session expired. Please log in again.', 'error');
                 this.logout();
                 return;
             }
@@ -406,10 +427,9 @@ Alpine.data('app', () => ({
                     });
 
                     if (diffRes.status === 401) {
-                        const errorBody = await res.json();
-                        alert('Session expired during update. Please log in again.' + ' diffRes: ' + errorBody.error);
-                        this.logout();
-                        return;
+                         this.showToast('Session expired during update. Please log in again.', 'error');
+                         this.logout();
+                         return;
                     }
                     
                     this.currentDifficulty = nextDiff;
@@ -418,8 +438,9 @@ Alpine.data('app', () => ({
             }
             
             this.screen = 'home';
+            this.showToast('Workout saved successfully!', 'success');
         } catch (e) {
-            alert('Error saving workout: ' + e.message);
+            this.showToast('Error saving workout: ' + e.message, 'error');
             this.screen = 'home';
         } finally {
             this.activeWorkout.isSaving = false;
