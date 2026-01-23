@@ -42,15 +42,44 @@ Alpine.data('app', () => ({
     // Audio context for beep sound
     audioContext: null,
 
+    // Wake Lock
+    wakeLock: null,
+
+    async requestWakeLock() {
+        if ('wakeLock' in navigator) {
+            try {
+                this.wakeLock = await navigator.wakeLock.request('screen');
+                this.wakeLock.addEventListener('release', () => {
+                    // console.log('Wake Lock released');
+                    this.wakeLock = null;
+                });
+            } catch (err) {
+                console.error(`${err.name}, ${err.message}`);
+            }
+        }
+    },
+
+    async releaseWakeLock() {
+        if (this.wakeLock !== null) {
+            await this.wakeLock.release();
+            this.wakeLock = null;
+        }
+    },
+
     async init() {
         if (this.user) {
             if (this.screen === 'login') this.screen = 'home';
             await this.fetchDifficulties();
         }
         
-        // Initialize AudioContext on user interaction (init is usually too early for auto-play, but we prep it)
-        // We'll init it properly on first tap if needed
-        
+        // Re-request wake lock when visibility changes (if it was released by system)
+        document.addEventListener('visibilitychange', async () => {
+            if (this.wakeLock !== null && document.visibilityState === 'visible') {
+                await this.requestWakeLock();
+            }
+        });
+
+        // Initialize AudioContext on user interaction
         setInterval(() => {
             if (this.activeWorkout.isResting && this.activeWorkout.restTimeLeft > 0) {
                 this.activeWorkout.restTimeLeft--;
@@ -239,11 +268,19 @@ Alpine.data('app', () => ({
     },
 
     selectDifficulty(diff) {
+        if (!diff) return;
         this.currentDifficulty = diff;
-        // Optionally update backend immediately or just on workout start?
-        // User requirement 3: "Select difficulty... enter workout".
-        // Also "Submit data to backend... modify difficulty" logic exists.
-        // Let's just update local state for now.
+        // User manually selected a difficulty, update backend so it persists across reloads/sessions
+        if (this.user) {
+            this.user.current_difficulty_id = diff.id;
+            // Optimistically update, send to backend in background
+            fetch(`${this.apiUrl}/api/user/difficulty`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ difficulty_id: diff.id }),
+                credentials: 'include'
+            }).catch(console.error);
+        }
     },
 
     startWorkout() {
@@ -253,12 +290,14 @@ Alpine.data('app', () => ({
         this.activeWorkout.currentCount = 0;
         this.activeWorkout.isResting = false;
         this.screen = 'workout';
+        this.requestWakeLock();
     },
 
     quitWorkout() {
         if (confirm('Are you sure you want to quit current workout?')) {
             this.screen = 'home';
             this.activeWorkout.isResting = false;
+            this.releaseWakeLock();
         }
     },
 
@@ -384,6 +423,7 @@ Alpine.data('app', () => ({
             this.screen = 'home';
         } finally {
             this.activeWorkout.isSaving = false;
+            this.releaseWakeLock();
         }
     },
     
