@@ -345,7 +345,7 @@ Alpine.data('app', () => ({
 
             if (res.status === 401) {
                 const errorBody = await res.json();
-                alert('Session expired. Please log in again.' + ' record: ' + errorBody);
+                alert('Session expired. Please log in again.' + ' record: ' + errorBody.error);
                 this.logout();
                 return;
             }
@@ -368,7 +368,7 @@ Alpine.data('app', () => ({
 
                     if (diffRes.status === 401) {
                         const errorBody = await res.json();
-                        alert('Session expired during update. Please log in again.' + ' diffRes: ' + errorBody);
+                        alert('Session expired during update. Please log in again.' + ' diffRes: ' + errorBody.error);
                         this.logout();
                         return;
                     }
