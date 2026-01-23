@@ -8,6 +8,7 @@ Alpine.data('app', () => ({
     screen: Alpine.$persist('login'), // login, home, workout, summary
     apiUrl: Alpine.$persist(import.meta.env.VITE_API_URL || ''),
     user: Alpine.$persist(null),
+    token: Alpine.$persist(null),
     
     loginForm: {
         username: '',
@@ -112,6 +113,21 @@ Alpine.data('app', () => ({
         }, 1000);
     },
 
+    // Helper for fetch with auth
+    async authFetch(url, options = {}) {
+        const headers = options.headers || {};
+        if (this.token) {
+            headers['Authorization'] = `Bearer ${this.token}`;
+        }
+        
+        const res = await fetch(url, {
+            ...options,
+            headers
+        });
+        
+        return res;
+    },
+
     async login() {
         this.loginForm.error = '';
         if (this.loginForm.isLoading) return;
@@ -129,12 +145,12 @@ Alpine.data('app', () => ({
                 body: JSON.stringify({
                     username: this.loginForm.username,
                     password: this.loginForm.password
-                }),
-                credentials: 'include'
+                })
             });
             if (!res.ok) throw new Error('Login failed');
             const data = await res.json();
             this.user = data.user;
+            this.token = data.token;
             this.screen = 'home';
             this.fetchDifficulties();
         } catch (e) {
@@ -147,6 +163,9 @@ Alpine.data('app', () => ({
     async fetchDifficulties() {
         if (!this.apiUrl) return;
         try {
+            // Difficulties is public, but user preference needs auth if we wanted to fetch it separately
+            // Actually, we store current_difficulty_id in user object.
+            // Let's just fetch public difficulties list.
             const res = await fetch(`${this.apiUrl}/api/difficulties`);
             if (res.status === 401) {
                 this.logout();
@@ -175,7 +194,7 @@ Alpine.data('app', () => ({
     async fetchRecords() {
         if (!this.apiUrl || !this.user) return;
         try {
-            const res = await fetch(`${this.apiUrl}/api/records`, { credentials: 'include' });
+            const res = await this.authFetch(`${this.apiUrl}/api/records`);
             if (res.status === 401) return; // Handled elsewhere usually
             const data = await res.json();
             
@@ -296,11 +315,10 @@ Alpine.data('app', () => ({
         if (this.user) {
             this.user.current_difficulty_id = diff.id;
             // Optimistically update, send to backend in background
-            fetch(`${this.apiUrl}/api/user/difficulty`, {
+            this.authFetch(`${this.apiUrl}/api/user/difficulty`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ difficulty_id: diff.id }),
-                credentials: 'include'
+                body: JSON.stringify({ difficulty_id: diff.id })
             }).catch(console.error);
         }
     },
@@ -394,20 +412,20 @@ Alpine.data('app', () => ({
 
         try {
             // Submit record
-            const res = await fetch(`${this.apiUrl}/api/records`, {
+            const res = await this.authFetch(`${this.apiUrl}/api/records`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     difficulty_id: this.currentDifficulty.id,
                     total_count: this.activeWorkout.sets.reduce((a,b)=>a+b, 0)
-                }),
-                credentials: 'include'
+                })
             });
 
+            // NOTE: We do NOT use previous "return" here so we reach finally block
             if (res.status === 401) {
                 this.showToast('Session expired. Please log in again.', 'error');
                 this.logout();
-                return;
+                return; 
             }
 
             if (!res.ok) throw new Error('Failed to save record');
@@ -419,11 +437,10 @@ Alpine.data('app', () => ({
                     const nextDiff = this.difficulties[currentIndex + 1];
                     
                     // Update user difficulty in backend
-                    const diffRes = await fetch(`${this.apiUrl}/api/user/difficulty`, {
+                    const diffRes = await this.authFetch(`${this.apiUrl}/api/user/difficulty`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ difficulty_id: nextDiff.id }),
-                        credentials: 'include'
+                        body: JSON.stringify({ difficulty_id: nextDiff.id })
                     });
 
                     if (diffRes.status === 401) {
@@ -450,13 +467,13 @@ Alpine.data('app', () => ({
     
     async logout() {
         try {
-            if (this.apiUrl) {
-                await fetch(`${this.apiUrl}/api/logout`, { method: 'POST', credentials: 'include' });
-            }
+            // No need to call backend to clear cookie, but we can call it to log the event if we want
+            // Just clear local state
         } catch (e) {
             console.error('Logout failed', e);
         }
         this.user = null;
+        this.token = null;
         this.screen = 'login';
         this.currentDifficulty = null;
     },
