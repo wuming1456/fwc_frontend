@@ -159,14 +159,22 @@
             <div class="grid grid-cols-7 gap-1">
                 <template x-for="(date, index) in calendar.days" :key="index">
                     <div @click="selectDate(date)" 
-                         class="aspect-square relative rounded-lg flex flex-col items-center justify-center cursor-pointer transition-all border border-transparent"
+                         class="aspect-square relative rounded-lg flex flex-col items-center justify-center cursor-pointer transition-all border"
                          :class="{
                             'hover:bg-gray-700': date.day,
                             'bg-green-900/40 border-green-500/30': date.hasRecord,
-                            'opacity-0': !date.day
+                            'border-blue-500/50 bg-blue-900/20': date.isToday,
+                            'opacity-0': !date.day,
+                            'text-gray-600': date.isFuture,
+                            'border-transparent': !date.hasRecord && !date.isToday
                          }">
                         <span class="text-sm font-medium" 
-                              :class="date.hasRecord ? 'text-green-400' : 'text-gray-400'" 
+                              :class="{
+                                  'text-green-400': date.hasRecord,
+                                  'text-blue-400': date.isToday && !date.hasRecord,
+                                  'text-gray-400': !date.hasRecord && !date.isToday && !date.isFuture,
+                                  'text-gray-600': date.isFuture
+                              }" 
                               x-text="date.day"></span>
                         
                         <!-- Total Count Badge -->

@@ -226,8 +226,14 @@ Alpine.data('app', () => ({
 
     async fetchRecords() {
         if (!this.apiUrl || !this.user) return;
+        
+        // Format current calendar month as YYYY-MM
+        const year = this.calendar.currentDate.getFullYear();
+        const month = String(this.calendar.currentDate.getMonth() + 1).padStart(2, '0');
+        const monthStr = `${year}-${month}`;
+
         try {
-            const res = await this.authFetch(`${this.apiUrl}/api/records`);
+            const res = await this.authFetch(`${this.apiUrl}/api/records?month=${monthStr}`);
             if (res.status === 401) return; // Handled elsewhere usually
             const data = await res.json();
             
@@ -294,6 +300,11 @@ Alpine.data('app', () => ({
             days.push({ day: '', fullDate: null, hasRecord: false });
         }
         
+        // Today check
+        const today = new Date();
+        const isCurrentMonth = today.getFullYear() === year && today.getMonth() === month;
+        const todayDate = today.getDate();
+
         // Actual days
         for (let i = 1; i <= lastDay.getDate(); i++) {
             const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(i).padStart(2, '0')}`;
@@ -302,12 +313,19 @@ Alpine.data('app', () => ({
             const dayRecords = this.calendar.records.filter(r => r.displayDate === dateStr);
             const totalCount = dayRecords.reduce((sum, r) => sum + r.total_count, 0);
             
+            const isToday = isCurrentMonth && i === todayDate;
+            const isFuture = (year > today.getFullYear()) || 
+                             (year === today.getFullYear() && month > today.getMonth()) ||
+                             (isCurrentMonth && i > todayDate);
+
             days.push({
                 day: i,
                 fullDate: dateStr,
                 hasRecord: dayRecords.length > 0,
                 totalCount: totalCount,
-                records: dayRecords
+                records: dayRecords,
+                isToday: isToday,
+                isFuture: isFuture
             });
         }
         
@@ -317,13 +335,13 @@ Alpine.data('app', () => ({
     prevMonth() {
         this.calendar.currentDate.setMonth(this.calendar.currentDate.getMonth() - 1);
         this.calendar.currentDate = new Date(this.calendar.currentDate); // trigger reactivity
-        this.renderCalendar();
+        this.fetchRecords(); // Re-fetch for new month
     },
     
     nextMonth() {
         this.calendar.currentDate.setMonth(this.calendar.currentDate.getMonth() + 1);
         this.calendar.currentDate = new Date(this.calendar.currentDate);
-        this.renderCalendar();
+        this.fetchRecords(); // Re-fetch for new month
     },
     
     selectDate(day) {
