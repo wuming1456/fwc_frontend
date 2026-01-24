@@ -62,6 +62,23 @@ Alpine.data('app', () => ({
     // Difficulty Picker
     difficultyPickerOpen: false,
 
+    // Confirm Modal
+    confirmModal: {
+        visible: false,
+        title: '',
+        message: '',
+        confirmText: 'Confirm',
+        cancelText: 'Cancel',
+        onConfirm: null
+    },
+
+    showConfirm(title, message, onConfirm) {
+        this.confirmModal.title = title;
+        this.confirmModal.message = message;
+        this.confirmModal.onConfirm = onConfirm;
+        this.confirmModal.visible = true;
+    },
+
     // Audio context for beep sound
     audioContext: null,
 
@@ -334,11 +351,15 @@ Alpine.data('app', () => ({
     },
 
     quitWorkout() {
-        if (confirm('Are you sure you want to quit current workout?')) {
-            this.screen = 'home';
-            this.activeWorkout.isResting = false;
-            this.releaseWakeLock();
-        }
+        this.showConfirm(
+            'Quit Workout?',
+            'Are you sure you want to quit? Your progress for this session will be lost.',
+            () => {
+                this.screen = 'home';
+                this.activeWorkout.isResting = false;
+                this.releaseWakeLock();
+            }
+        );
     },
 
     playBeep() {
