@@ -84,6 +84,7 @@ Alpine.data('app', () => ({
 
     // Wake Lock
     wakeLock: null,
+    wakeLockTimeout: null,
 
     async requestWakeLock() {
         if ('wakeLock' in navigator) {
@@ -93,6 +94,16 @@ Alpine.data('app', () => ({
                     // console.log('Wake Lock released');
                     this.wakeLock = null;
                 });
+                
+                // Clear any existing timeout
+                if (this.wakeLockTimeout) clearTimeout(this.wakeLockTimeout);
+                
+                // Set timeout to release lock after 5 minutes (300,000 ms)
+                this.wakeLockTimeout = setTimeout(() => {
+                    this.releaseWakeLock();
+                    this.showToast('Screen wake lock released to save battery', 'info');
+                }, 5 * 60 * 1000);
+                
             } catch (err) {
                 console.error(`${err.name}, ${err.message}`);
             }
@@ -100,6 +111,11 @@ Alpine.data('app', () => ({
     },
 
     async releaseWakeLock() {
+        if (this.wakeLockTimeout) {
+            clearTimeout(this.wakeLockTimeout);
+            this.wakeLockTimeout = null;
+        }
+        
         if (this.wakeLock !== null) {
             await this.wakeLock.release();
             this.wakeLock = null;
@@ -396,6 +412,11 @@ Alpine.data('app', () => ({
         if (e && e.type === 'mousedown' && 'ontouchstart' in window) {
              // Let touchstart handle it on touch devices
              return;
+        }
+        
+        // Reset wake lock timer on user interaction
+        if (this.wakeLock) {
+            this.requestWakeLock(); // Re-requesting effectively resets the timer logic
         }
         
         if (this.activeWorkout.isResting) return;
