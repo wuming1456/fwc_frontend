@@ -443,6 +443,11 @@ Alpine.data('app', () => ({
              // Let touchstart handle it on touch devices
              return;
         }
+
+        // Multi-touch prevention: Only trigger on the FIRST touch
+        if (e && e.type === 'touchstart' && e.touches.length > 1) {
+            return;
+        }
         
         // Reset wake lock timer on user interaction
         if (this.wakeLock) {
