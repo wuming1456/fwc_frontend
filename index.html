@@ -121,6 +121,13 @@
                     <svg class="w-6 h-6 text-white group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
                 </div>
             </button>
+            
+            <button @click="startInfiniteMode" class="group relative w-full overflow-hidden rounded-2xl bg-gray-800 p-1 border border-gray-700 transition-all hover:scale-[1.02] active:scale-[0.98]">
+                <div class="relative flex items-center justify-center gap-3 bg-transparent py-4 rounded-xl">
+                    <span class="text-xl font-bold text-purple-400">Infinite Mode</span>
+                    <svg class="w-6 h-6 text-purple-400 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                </div>
+            </button>
         </div>
     </div>
 
@@ -326,22 +333,37 @@
                 <h2 class="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-green-400 to-emerald-400 mb-2">Complete!</h2>
                 <div class="h-1 w-20 bg-gray-700 mx-auto rounded-full my-6"></div>
                 <p class="text-gray-400 text-sm uppercase tracking-wider mb-2">Total Pushups</p>
-                <p class="text-7xl font-black text-white" x-text="activeWorkout.sets.reduce((a,b)=>a+b, 0)"></p>
+                <p class="text-7xl font-black text-white" x-text="activeWorkout.isInfinite ? activeWorkout.currentCount : activeWorkout.sets.reduce((a,b)=>a+b, 0)"></p>
             </div>
         </div>
         
         <div class="w-full max-w-sm space-y-4">
-            <button @click="finishWorkout(true)" :disabled="activeWorkout.isSaving" :class="{'opacity-50 cursor-not-allowed': activeWorkout.isSaving}" class="w-full group relative overflow-hidden bg-blue-600 hover:bg-blue-500 text-white font-bold py-4 px-6 rounded-2xl transition-all shadow-lg shadow-blue-900/40">
-                <div class="relative flex items-center justify-center gap-3">
-                    <span x-text="activeWorkout.isSaving ? 'Saving...' : 'Level Up'"></span>
-                    <svg x-show="!activeWorkout.isSaving" class="w-5 h-5 group-hover:-translate-y-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path></svg>
-                    <svg x-show="activeWorkout.isSaving" class="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+            <template x-if="!activeWorkout.isInfinite">
+                <div class="space-y-4">
+                    <button @click="finishWorkout(true)" :disabled="activeWorkout.isSaving" :class="{'opacity-50 cursor-not-allowed': activeWorkout.isSaving}" class="w-full group relative overflow-hidden bg-blue-600 hover:bg-blue-500 text-white font-bold py-4 px-6 rounded-2xl transition-all shadow-lg shadow-blue-900/40">
+                        <div class="relative flex items-center justify-center gap-3">
+                            <span x-text="activeWorkout.isSaving ? 'Saving...' : 'Level Up'"></span>
+                            <svg x-show="!activeWorkout.isSaving" class="w-5 h-5 group-hover:-translate-y-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path></svg>
+                            <svg x-show="activeWorkout.isSaving" class="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                        </div>
+                    </button>
+                    
+                    <button @click="finishWorkout(false)" :disabled="activeWorkout.isSaving" :class="{'opacity-50 cursor-not-allowed': activeWorkout.isSaving}" class="w-full bg-transparent hover:bg-gray-800 text-gray-400 hover:text-white font-semibold py-4 px-6 rounded-2xl border border-gray-700 transition-all">
+                        <span x-text="activeWorkout.isSaving ? 'Saving...' : 'Repeat Level'"></span>
+                    </button>
                 </div>
-            </button>
+            </template>
             
-            <button @click="finishWorkout(false)" :disabled="activeWorkout.isSaving" :class="{'opacity-50 cursor-not-allowed': activeWorkout.isSaving}" class="w-full bg-transparent hover:bg-gray-800 text-gray-400 hover:text-white font-semibold py-4 px-6 rounded-2xl border border-gray-700 transition-all">
-                <span x-text="activeWorkout.isSaving ? 'Saving...' : 'Repeat Level'"></span>
-            </button>
+            <template x-if="activeWorkout.isInfinite">
+                 <button @click="finishWorkout(false)" :disabled="activeWorkout.isSaving" :class="{'opacity-50 cursor-not-allowed': activeWorkout.isSaving}" class="w-full group relative overflow-hidden bg-purple-600 hover:bg-purple-500 text-white font-bold py-4 px-6 rounded-2xl transition-all shadow-lg shadow-purple-900/40">
+                    <div class="relative flex items-center justify-center gap-3">
+                        <span x-text="activeWorkout.isSaving ? 'Saving...' : 'Finish & Save'"></span>
+                         <svg x-show="activeWorkout.isSaving" class="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                    </div>
+                </button>
+            </template>
+            
+            <button @click="screen = 'home'" class="w-full text-gray-500 hover:text-gray-300 text-sm py-2">Back to Home</button>
         </div>
     </div>
 

@@ -27,7 +27,8 @@ Alpine.data('app', () => ({
         isResting: false,
         restTimeLeft: 0,
         customRestTime: Alpine.$persist(60),
-        isSaving: false
+        isSaving: false,
+        isInfinite: false
     },
     
     // Calendar related state
@@ -380,6 +381,17 @@ Alpine.data('app', () => ({
         this.activeWorkout.currentSetIndex = 0;
         this.activeWorkout.currentCount = 0;
         this.activeWorkout.isResting = false;
+        this.activeWorkout.isInfinite = false;
+        this.screen = 'workout';
+        this.requestWakeLock();
+    },
+
+    startInfiniteMode() {
+        this.activeWorkout.sets = [9999]; // Dummy set for infinite
+        this.activeWorkout.currentSetIndex = 0;
+        this.activeWorkout.currentCount = 0;
+        this.activeWorkout.isResting = false;
+        this.activeWorkout.isInfinite = true;
         this.screen = 'workout';
         this.requestWakeLock();
     },
@@ -443,6 +455,12 @@ Alpine.data('app', () => ({
         
         const target = this.activeWorkout.sets[this.activeWorkout.currentSetIndex];
         
+        // In infinite mode, we just count up, target is practically infinite
+        if (this.activeWorkout.isInfinite) {
+            this.activeWorkout.currentCount++;
+            return;
+        }
+
         if (this.activeWorkout.currentCount < target) {
             this.activeWorkout.currentCount++;
         }
@@ -453,6 +471,13 @@ Alpine.data('app', () => ({
     },
     
     skipSet() {
+        // In infinite mode, skip set acts as finish
+        if (this.activeWorkout.isInfinite) {
+            this.screen = 'summary';
+            this.releaseWakeLock();
+            return;
+        }
+
         if (this.activeWorkout.isResting) {
              this.activeWorkout.isResting = false;
              return;
@@ -474,6 +499,18 @@ Alpine.data('app', () => ({
 
     async finishWorkout(increaseDifficulty) {
         if (this.activeWorkout.isSaving) return;
+        
+        // Calculate total
+        const totalCount = this.activeWorkout.isInfinite 
+            ? this.activeWorkout.currentCount 
+            : this.activeWorkout.sets.reduce((a,b)=>a+b, 0);
+
+        if (totalCount === 0) {
+            this.showToast('No pushups recorded.', 'info');
+            this.screen = 'home';
+            return;
+        }
+
         this.activeWorkout.isSaving = true;
 
         try {
@@ -483,7 +520,7 @@ Alpine.data('app', () => ({
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     difficulty_id: this.currentDifficulty.id,
-                    total_count: this.activeWorkout.sets.reduce((a,b)=>a+b, 0)
+                    total_count: totalCount
                 })
             });
 
@@ -496,7 +533,8 @@ Alpine.data('app', () => ({
 
             if (!res.ok) throw new Error('Failed to save record');
 
-            if (increaseDifficulty) {
+            // Only increase difficulty if not in infinite mode and requested
+            if (increaseDifficulty && !this.activeWorkout.isInfinite) {
                 // Find next difficulty
                 const currentIndex = this.difficulties.findIndex(d => d.id === this.currentDifficulty.id);
                 if (currentIndex < this.difficulties.length - 1) {
