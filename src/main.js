@@ -366,12 +366,13 @@ Alpine.data('app', () => ({
         // User manually selected a difficulty, update backend so it persists across reloads/sessions
         if (this.user) {
             this.user.current_difficulty_id = diff.id;
-            // Optimistically update, send to backend in background
+            // Optimistically update, send to backend in background (fire and forget)
+            // No await here, asynchronous execution as requested
             this.authFetch(`${this.apiUrl}/api/user/difficulty`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ difficulty_id: diff.id })
-            }).catch(console.error);
+            }).catch(e => console.error('Background difficulty update failed', e));
         }
     },
 
@@ -499,6 +500,7 @@ Alpine.data('app', () => ({
             this.activeWorkout.currentCount = 0;
             this.activeWorkout.isResting = true;
             this.activeWorkout.restTimeLeft = this.activeWorkout.customRestTime;
+            this.requestWakeLock(); // Ensure screen stays on during rest
         }
     },
 
@@ -537,6 +539,17 @@ Alpine.data('app', () => ({
             }
 
             if (!res.ok) throw new Error('Failed to save record');
+
+            // Refresh token in background
+            this.authFetch(`${this.apiUrl}/api/refresh-token`, { method: 'POST' })
+                .then(res => res.ok ? res.json() : null)
+                .then(data => {
+                    if (data && data.token) {
+                        this.token = data.token;
+                        console.log('Token refreshed');
+                    }
+                })
+                .catch(console.error);
 
             // Only increase difficulty if not in infinite mode and requested
             if (increaseDifficulty && !this.activeWorkout.isInfinite) {
