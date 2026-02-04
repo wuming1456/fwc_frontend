@@ -28,6 +28,7 @@ Alpine.data('app', () => ({
         restTimeLeft: 0,
         customRestTime: Alpine.$persist(60),
         isSaving: false,
+        savingType: null, // 'level_up' | 'repeat' | 'finish'
         isInfinite: false
     },
     
@@ -519,6 +520,13 @@ Alpine.data('app', () => ({
         }
 
         this.activeWorkout.isSaving = true;
+        
+        // Determine saving type for UI loading state
+        if (this.activeWorkout.isInfinite) {
+            this.activeWorkout.savingType = 'finish';
+        } else {
+            this.activeWorkout.savingType = increaseDifficulty ? 'level_up' : 'repeat';
+        }
 
         try {
             // Submit record
@@ -583,6 +591,7 @@ Alpine.data('app', () => ({
             this.screen = 'home';
         } finally {
             this.activeWorkout.isSaving = false;
+            this.activeWorkout.savingType = null;
             this.releaseWakeLock();
         }
     },
