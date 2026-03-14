@@ -83,6 +83,7 @@ Alpine.data('app', () => ({
 
     // Audio context for beep sound
     audioContext: null,
+    audioUnlocked: false,
 
     // Wake Lock
     wakeLock: null,
@@ -418,6 +419,14 @@ Alpine.data('app', () => ({
             
             if (this.audioContext.state === 'suspended') {
                 this.audioContext.resume();
+            }
+
+            // iOS Silent Mode Bypass: Play a silent sound through HTML5 Audio once
+            if (!this.audioUnlocked) {
+                const silentAudio = new Audio('data:audio/wav;base64,UklGRigAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQQAAAAAAA==');
+                silentAudio.play().then(() => {
+                    this.audioUnlocked = true;
+                }).catch(e => console.error('Silent audio play failed', e));
             }
 
             const oscillator = this.audioContext.createOscillator();
