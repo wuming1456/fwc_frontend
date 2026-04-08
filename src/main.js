@@ -126,10 +126,25 @@ Alpine.data('app', () => ({
     },
 
     async init() {
-        if (this.user) {
-            if (this.screen === 'login') this.screen = 'home';
-            await this.fetchDifficulties();
+        if (!this.user || !this.token) {
+            this.screen = 'login';
+            return;
         }
+
+        // If we are on workout or summary screen but missing workout data (e.g. after reload)
+        // Redirect back to home to avoid errors
+        if (this.screen === 'workout' || this.screen === 'summary') {
+            const hasSets = this.activeWorkout.sets && this.activeWorkout.sets.length > 0;
+            const isInfinite = this.activeWorkout.isInfinite;
+            
+            if (!hasSets && !isInfinite) {
+                console.warn('Workout data missing, redirecting to home');
+                this.screen = 'home';
+            }
+        }
+
+        if (this.screen === 'login') this.screen = 'home';
+        await this.fetchDifficulties();
         
         // Re-request wake lock when visibility changes (if it was released by system)
         document.addEventListener('visibilitychange', async () => {
