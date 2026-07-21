@@ -28,8 +28,10 @@ Alpine.data('app', () => ({
         restTimeLeft: 0,
         customRestTime: Alpine.$persist(60),
         isSaving: false,
-        savingType: null, // 'level_up' | 'repeat' | 'finish'
-        isInfinite: false
+        savingType: null, // 'level_up' | 'repeat'
+        isInfinite: false,
+        autoSaveStatus: 'idle', // 'idle' | 'saving' | 'saved' | 'error'
+        autoSaveError: ''
     },
     
     // Calendar related state
@@ -89,6 +91,34 @@ Alpine.data('app', () => ({
     wakeLock: null,
     wakeLockTimeout: null,
 
+    resetWorkoutState() {
+        Object.assign(this.activeWorkout, {
+            sets: [],
+            currentSetIndex: 0,
+            currentCount: 0,
+            isResting: false,
+            restTimeLeft: 0,
+            isSaving: false,
+            savingType: null,
+            isInfinite: false,
+            autoSaveStatus: 'idle',
+            autoSaveError: ''
+        });
+    },
+
+    hasValidWorkoutState() {
+        if (this.activeWorkout.isInfinite) {
+            return Number.isFinite(this.activeWorkout.currentCount) && this.activeWorkout.currentCount >= 0;
+        }
+
+        const { sets, currentSetIndex, currentCount } = this.activeWorkout;
+        const hasSets = Array.isArray(sets) && sets.length > 0;
+        const validSetIndex = Number.isInteger(currentSetIndex) && currentSetIndex >= 0 && currentSetIndex < sets.length;
+        const validCurrentCount = Number.isFinite(currentCount) && currentCount >= 0;
+
+        return hasSets && validSetIndex && validCurrentCount;
+    },
+
     async requestWakeLock() {
         if ('wakeLock' in navigator) {
             try {
@@ -128,19 +158,14 @@ Alpine.data('app', () => ({
     async init() {
         if (!this.user || !this.token) {
             this.screen = 'login';
+            this.resetWorkoutState();
             return;
         }
 
-        // If we are on workout or summary screen but missing workout data (e.g. after reload)
-        // Redirect back to home to avoid errors
-        if (this.screen === 'workout' || this.screen === 'summary') {
-            const hasSets = this.activeWorkout.sets && this.activeWorkout.sets.length > 0;
-            const isInfinite = this.activeWorkout.isInfinite;
-            
-            if (!hasSets && !isInfinite) {
-                console.warn('Workout data missing, redirecting to home');
-                this.screen = 'home';
-            }
+        if ((this.screen === 'workout' || this.screen === 'summary') && !this.hasValidWorkoutState()) {
+            console.warn('Workout data missing, redirecting to home');
+            this.resetWorkoutState();
+            this.screen = 'home';
         }
 
         if (this.screen === 'login') this.screen = 'home';
@@ -166,17 +191,104 @@ Alpine.data('app', () => ({
 
     // Helper for fetch with auth
     async authFetch(url, options = {}) {
-        const headers = options.headers || {};
+        const headers = new Headers(options.headers || {});
         if (this.token) {
-            headers['Authorization'] = `Bearer ${this.token}`;
+            headers.set('Authorization', `Bearer ${this.token}`);
         }
         
-        const res = await fetch(url, {
+        return fetch(url, {
             ...options,
             headers
         });
-        
-        return res;
+    },
+
+    getWorkoutTotalCount() {
+        return this.activeWorkout.isInfinite
+            ? this.activeWorkout.currentCount
+            : this.activeWorkout.sets.reduce((sum, count) => sum + count, 0);
+    },
+
+    goHomeFromSummary() {
+        this.screen = 'home';
+        this.resetWorkoutState();
+    },
+
+    showSummary() {
+        const totalCount = this.getWorkoutTotalCount();
+
+        if (totalCount === 0) {
+            this.showToast('No pushups recorded.', 'info');
+            this.goHomeFromSummary();
+            this.releaseWakeLock();
+            return;
+        }
+
+        this.screen = 'summary';
+        this.releaseWakeLock();
+        this.saveWorkoutRecord();
+    },
+
+    async saveWorkoutRecord() {
+        if (this.activeWorkout.autoSaveStatus === 'saving' || this.activeWorkout.autoSaveStatus === 'saved') {
+            return this.activeWorkout.autoSaveStatus === 'saved';
+        }
+
+        const totalCount = this.getWorkoutTotalCount();
+        if (totalCount === 0) {
+            this.showToast('No pushups recorded.', 'info');
+            this.goHomeFromSummary();
+            return false;
+        }
+
+        if (!this.currentDifficulty?.id) {
+            this.activeWorkout.autoSaveStatus = 'error';
+            this.activeWorkout.autoSaveError = 'Current difficulty is missing.';
+            this.showToast('Failed to save workout: current difficulty is missing.', 'error');
+            return false;
+        }
+
+        this.activeWorkout.autoSaveStatus = 'saving';
+        this.activeWorkout.autoSaveError = '';
+
+        try {
+            const res = await this.authFetch(`${this.apiUrl}/api/records`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    difficulty_id: this.currentDifficulty.id,
+                    total_count: totalCount
+                })
+            });
+
+            if (res.status === 401) {
+                this.showToast('Session expired. Please log in again.', 'error');
+                this.logout();
+                return false;
+            }
+
+            if (!res.ok) throw new Error('Failed to save record');
+
+            this.activeWorkout.autoSaveStatus = 'saved';
+            this.activeWorkout.autoSaveError = '';
+            this.showToast('Workout saved successfully!', 'success');
+            this.fetchRecords();
+
+            this.authFetch(`${this.apiUrl}/api/refresh-token`, { method: 'POST' })
+                .then(refreshRes => refreshRes.ok ? refreshRes.json() : null)
+                .then(data => {
+                    if (data && data.token) {
+                        this.token = data.token;
+                    }
+                })
+                .catch(console.error);
+
+            return true;
+        } catch (e) {
+            this.activeWorkout.autoSaveStatus = 'error';
+            this.activeWorkout.autoSaveError = e.message;
+            this.showToast(`Auto save failed: ${e.message}`, 'error');
+            return false;
+        }
     },
 
     async login() {
@@ -400,6 +512,10 @@ Alpine.data('app', () => ({
         this.activeWorkout.currentCount = 0;
         this.activeWorkout.isResting = false;
         this.activeWorkout.isInfinite = false;
+        this.activeWorkout.isSaving = false;
+        this.activeWorkout.savingType = null;
+        this.activeWorkout.autoSaveStatus = 'idle';
+        this.activeWorkout.autoSaveError = '';
         this.screen = 'workout';
         this.requestWakeLock();
     },
@@ -410,6 +526,10 @@ Alpine.data('app', () => ({
         this.activeWorkout.currentCount = 0;
         this.activeWorkout.isResting = false;
         this.activeWorkout.isInfinite = true;
+        this.activeWorkout.isSaving = false;
+        this.activeWorkout.savingType = null;
+        this.activeWorkout.autoSaveStatus = 'idle';
+        this.activeWorkout.autoSaveError = '';
         this.screen = 'workout';
         this.requestWakeLock();
     },
@@ -419,8 +539,7 @@ Alpine.data('app', () => ({
             'Quit Workout?',
             'Are you sure you want to quit? Your progress for this session will be lost.',
             () => {
-                this.screen = 'home';
-                this.activeWorkout.isResting = false;
+                this.goHomeFromSummary();
                 this.releaseWakeLock();
             }
         );
@@ -504,8 +623,7 @@ Alpine.data('app', () => ({
     skipSet() {
         // In infinite mode, skip set acts as finish
         if (this.activeWorkout.isInfinite) {
-            this.screen = 'summary';
-            this.releaseWakeLock();
+            this.showSummary();
             return;
         }
 
@@ -518,8 +636,8 @@ Alpine.data('app', () => ({
     },
 
     completeSet() {
-        if (this.activeWorkout.currentSetIndex >= 4) {
-            this.screen = 'summary';
+        if (this.activeWorkout.currentSetIndex >= this.activeWorkout.sets.length - 1) {
+            this.showSummary();
         } else {
             this.activeWorkout.currentSetIndex++;
             this.activeWorkout.currentCount = 0;
@@ -530,93 +648,54 @@ Alpine.data('app', () => ({
     },
 
     async finishWorkout(increaseDifficulty) {
-        if (this.activeWorkout.isSaving) return;
-        
-        // Calculate total
-        const totalCount = this.activeWorkout.isInfinite 
-            ? this.activeWorkout.currentCount 
-            : this.activeWorkout.sets.reduce((a,b)=>a+b, 0);
+        if (this.activeWorkout.isSaving || this.activeWorkout.autoSaveStatus === 'saving') return;
 
-        if (totalCount === 0) {
-            this.showToast('No pushups recorded.', 'info');
-            this.screen = 'home';
+        if (this.activeWorkout.autoSaveStatus !== 'saved') {
+            const saved = await this.saveWorkoutRecord();
+            if (!saved) return;
+        }
+
+        if (this.activeWorkout.isInfinite || !increaseDifficulty) {
+            this.showToast('Workout saved successfully!', 'success');
+            this.goHomeFromSummary();
             return;
         }
 
         this.activeWorkout.isSaving = true;
-        
-        // Determine saving type for UI loading state
-        if (this.activeWorkout.isInfinite) {
-            this.activeWorkout.savingType = 'finish';
-        } else {
-            this.activeWorkout.savingType = increaseDifficulty ? 'level_up' : 'repeat';
-        }
+        this.activeWorkout.savingType = increaseDifficulty ? 'level_up' : 'repeat';
 
         try {
-            // Submit record
-            const res = await this.authFetch(`${this.apiUrl}/api/records`, {
+            const currentIndex = this.difficulties.findIndex(d => d.id === this.currentDifficulty.id);
+            if (currentIndex < 0 || currentIndex >= this.difficulties.length - 1) {
+                this.showToast('Already at the highest difficulty.', 'info');
+                this.goHomeFromSummary();
+                return;
+            }
+
+            const nextDiff = this.difficulties[currentIndex + 1];
+            const diffRes = await this.authFetch(`${this.apiUrl}/api/user/difficulty`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    difficulty_id: this.currentDifficulty.id,
-                    total_count: totalCount
-                })
+                body: JSON.stringify({ difficulty_id: nextDiff.id })
             });
 
-            // NOTE: We do NOT use previous "return" here so we reach finally block
-            if (res.status === 401) {
-                this.showToast('Session expired. Please log in again.', 'error');
+            if (diffRes.status === 401) {
+                this.showToast('Session expired during update. Please log in again.', 'error');
                 this.logout();
-                return; 
+                return;
             }
 
-            if (!res.ok) throw new Error('Failed to save record');
+            if (!diffRes.ok) throw new Error('Failed to update difficulty');
 
-            // Refresh token in background
-            this.authFetch(`${this.apiUrl}/api/refresh-token`, { method: 'POST' })
-                .then(res => res.ok ? res.json() : null)
-                .then(data => {
-                    if (data && data.token) {
-                        this.token = data.token;
-                        console.log('Token refreshed');
-                    }
-                })
-                .catch(console.error);
-
-            // Only increase difficulty if not in infinite mode and requested
-            if (increaseDifficulty && !this.activeWorkout.isInfinite) {
-                // Find next difficulty
-                const currentIndex = this.difficulties.findIndex(d => d.id === this.currentDifficulty.id);
-                if (currentIndex < this.difficulties.length - 1) {
-                    const nextDiff = this.difficulties[currentIndex + 1];
-                    
-                    // Update user difficulty in backend
-                    const diffRes = await this.authFetch(`${this.apiUrl}/api/user/difficulty`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ difficulty_id: nextDiff.id })
-                    });
-
-                    if (diffRes.status === 401) {
-                         this.showToast('Session expired during update. Please log in again.', 'error');
-                         this.logout();
-                         return;
-                    }
-                    
-                    this.currentDifficulty = nextDiff;
-                    this.user.current_difficulty_id = nextDiff.id;
-                }
-            }
-            
-            this.screen = 'home';
-            this.showToast('Workout saved successfully!', 'success');
+            this.currentDifficulty = nextDiff;
+            this.user.current_difficulty_id = nextDiff.id;
+            this.showToast('Workout saved and difficulty increased!', 'success');
+            this.goHomeFromSummary();
         } catch (e) {
-            this.showToast('Error saving workout: ' + e.message, 'error');
-            this.screen = 'home';
+            this.showToast('Failed to update difficulty: ' + e.message, 'error');
         } finally {
             this.activeWorkout.isSaving = false;
             this.activeWorkout.savingType = null;
-            this.releaseWakeLock();
         }
     },
     
@@ -631,6 +710,7 @@ Alpine.data('app', () => ({
         this.token = null;
         this.screen = 'login';
         this.currentDifficulty = null;
+        this.resetWorkoutState();
     },
     
     get progressPercentage() {
