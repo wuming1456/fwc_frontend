@@ -338,18 +338,7 @@
         </div>
         
         <div class="w-full max-w-sm space-y-4">
-            <div class="rounded-2xl border p-4 text-sm"
-                 :class="{
-                    'bg-blue-500/10 border-blue-500/20 text-blue-200': activeWorkout.autoSaveStatus === 'saving',
-                    'bg-green-500/10 border-green-500/20 text-green-200': activeWorkout.autoSaveStatus === 'saved',
-                    'bg-red-500/10 border-red-500/20 text-red-200': activeWorkout.autoSaveStatus === 'error',
-                    'bg-gray-800/70 border-gray-700 text-gray-300': activeWorkout.autoSaveStatus === 'idle'
-                 }">
-                <span x-show="activeWorkout.autoSaveStatus === 'saving'">Saving workout record in background...</span>
-                <span x-show="activeWorkout.autoSaveStatus === 'saved'">Workout record saved. You can choose whether to level up.</span>
-                <span x-show="activeWorkout.autoSaveStatus === 'error'" x-text="'Auto save failed: ' + (activeWorkout.autoSaveError || 'Unknown error')"></span>
-                <span x-show="activeWorkout.autoSaveStatus === 'idle'">Preparing summary...</span>
-            </div>
+            <div x-show="activeWorkout.autoSaveStatus === 'error'" class="rounded-2xl border bg-red-500/10 border-red-500/20 text-red-200 p-4 text-sm" x-text="'Auto save failed: ' + (activeWorkout.autoSaveError || 'Unknown error')"></div>
 
             <template x-if="!activeWorkout.isInfinite">
                 <div class="space-y-4">
